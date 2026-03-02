@@ -1,0 +1,137 @@
+version: '3.8'
+
+services:
+  # 前端开发服务
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    depends_on:
+      - backend
+    networks:
+      - mineru-dev-network
+
+  # 后端开发服务
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - ./mineru.json:/root/mineru.json
+      - ./models2.0:/models
+    environment:
+      - REDIS_HOST=redis
+      - MINIO_ENDPOINT=minio:9000
+      - DATABASE_URL=sqlite:///./mineru.db
+      - BACKEND=vllm-client
+      - SERVER_URL=http://vllm-server:30000
+      - PRELOAD_MODEL=false
+    depends_on:
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - mineru-dev-network
+
+  # Worker 服务
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    volumes:
+      - ./backend:/app
+      - ./mineru.json:/root/mineru.json
+      - ./models2.0:/models
+    environment:
+      - REDIS_HOST=redis
+      - MINIO_ENDPOINT=minio:9000
+      - DATABASE_URL=sqlite:///./mineru.db
+      - SERVER_URL=http://vllm-server:30000
+    depends_on:
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - mineru-dev-network
+    command: python run_worker.py
+
+  # Redis 服务
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - mineru-dev-network
+
+  # MinIO 服务
+  minio:
+    image: minio/minio:RELEASE.2024-12-18T13-15-44Z
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+    networks:
+      - mineru-dev-network
+
+  # vLLM 服务（可选，需要GPU支持）
+  vllm-server:
+    image: vllm/vllm-openai:latest
+    ports:
+      - "30000:30000"
+    environment:
+      - HF_MODEL=/models/vlm
+    volumes:
+      - ./models2.0:/models
+    command: --model /models/vlm --host 0.0.0.0 --port 30000
+    networks:
+      - mineru-dev-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:30000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  redis_data:
+  minio_data:
+
+networks:
+  mineru-dev-network:
+    driver: bridge
