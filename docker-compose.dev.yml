@@ -32,6 +32,7 @@ services:
       - ./models2.0:/models
     environment:
       - REDIS_HOST=redis-dev
+      - REDIS_PASSWORD=redispassword
       - MINIO_ENDPOINT=minio-dev:9000
       - DATABASE_URL=sqlite:///./mineru.db
       - BACKEND=vllm-client
@@ -58,6 +59,7 @@ services:
       - ./models2.0:/models
     environment:
       - REDIS_HOST=redis-dev
+      - REDIS_PASSWORD=redispassword
       - MINIO_ENDPOINT=minio-dev:9000
       - DATABASE_URL=sqlite:///./mineru.db
       - SERVER_URL=http://vllm-server-dev:30000
@@ -78,9 +80,12 @@ services:
       - "6380:6379"  # 使用不同端口避免冲突
     volumes:
       - redis_dev_data:/data
-    command: redis-server --appendonly yes
+      - ./redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf --requirepass redispassword --appendonly yes
+    environment:
+      - REDIS_PASSWORD=redispassword
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "redispassword", "ping"]
       interval: 10s
       timeout: 5s
       retries: 3
