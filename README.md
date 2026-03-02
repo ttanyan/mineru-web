@@ -159,8 +159,15 @@ npu-smi info
 ### 本地开发环境
 
 ```bash
-# 启动本地开发环境
+# 启动本地开发环境（推荐）
 docker-compose -f docker-compose.local.yml up -d
+
+# 或者使用详细开发配置
+docker-compose -f docker-compose.dev.yml up -d
+
+# 配置 MinIO 权限（首次启动后执行）
+mc alias set local-dev http://localhost:9000 minioadmin minioadmin
+mc anonymous set download local-dev/mds
 ```
 
 ## 📦 项目结构
@@ -182,7 +189,8 @@ mineru-web/
 ├── docker-compose.npu.yml          # 生产环境配置（华为昇腾 NPU）
 ├── docker-compose.vllm.yaml        # vLLM 服务配置（NVIDIA GPU）
 ├── docker-compose.vllm.npu.yaml    # vLLM 服务配置（华为昇腾 NPU）
-├── docker-compose.local.yml        # 开发环境配置
+├── docker-compose.local.yml        # 本地开发环境配置（简化版）
+├── docker-compose.dev.yml          # 详细开发环境配置
 └── README.md                       # 项目文档
 ```
 

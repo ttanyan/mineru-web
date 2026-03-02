@@ -3,7 +3,7 @@
         "mds": [
             "minioadmin",
             "minioadmin",
-            "http://10.10.10.16:9000"
+            "http://127.0.0.1:9000"
         ]
     },
     "latex-delimiter-config": {
